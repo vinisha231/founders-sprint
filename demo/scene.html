@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0f1115; }
+  #stage { width: 760px; padding: 32px 24px 24px; }
+  .caption { min-height: 22px; text-align: center; font-size: 14px; color: #9aa1ac; margin-bottom: 18px; }
+  .row { display: flex; justify-content: center; gap: 18px; }
+  .phone { width: 210px; flex-shrink: 0; background: #171a21; border: 1px solid #2a2f3a; border-radius: 28px; padding: 8px; }
+  .screen { background: #14161c; border-radius: 20px; overflow: hidden; height: 430px; display: flex; flex-direction: column; position: relative; }
+  .status { display: flex; justify-content: space-between; padding: 6px 14px 0; font-size: 12px; color: #9aa1ac; }
+  .header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #2a2f3a; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: #2a2f3a; flex-shrink: 0; }
+  .name { font-size: 13px; font-weight: 600; color: #e6e8ec; }
+  .sub { font-size: 11px; color: #9aa1ac; }
+  .msgs { flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+  .sender { font-size: 11px; color: #9aa1ac; margin: 6px 0 2px 2px; }
+  .bubble { align-self: flex-start; background: #171a21; border: 1px solid #2a2f3a; border-radius: 14px 14px 14px 4px; padding: 9px 11px; font-size: 12.5px; line-height: 1.5; max-width: 92%; color: #e6e8ec; }
+  .bubble.out { align-self: flex-end; background: #17233a; border-color: #17233a; color: #a9c6f5; border-radius: 14px 14px 4px 14px; }
+  .hl { border-radius: 3px; padding: 0 1px; }
+  .hl.on { background: #2a2114; color: #f5a623; }
+  .dots { display: flex; gap: 3px; align-self: flex-start; padding: 8px 10px; }
+  .dots span { width: 5px; height: 5px; border-radius: 50%; background: #9aa1ac; }
+  .mid { width: 150px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 36px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; background: #2a2114; color: #f5a623; font-size: 11px; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
+  .arrow { color: #9aa1ac; font-size: 15px; }
+  .card { width: 100%; border: 1px solid #e5484d; background: #2a1417; border-radius: 8px; padding: 9px 10px; }
+  .card p, .alertcard p { margin: 0 0 3px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 11px; color: #ff8489; line-height: 1.55; }
+  .card p:last-child, .alertcard p:last-child { margin-bottom: 0; }
+  .idle { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #9aa1ac; font-size: 12px; }
+  .banner { position: absolute; top: 32px; left: 8px; right: 8px; background: #2a1417; color: #ff8489; border-radius: 8px; padding: 9px 10px; font-size: 12px; font-weight: 600; }
+  .alert { flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .alertcard { border: 1px solid #e5484d; background: #2a1417; border-radius: 8px; padding: 10px 11px; }
+  .action { font-size: 11.5px; color: #9aa1ac; line-height: 1.5; }
+  .btn { width: 100%; border: 1px solid #2a2f3a; border-radius: 8px; padding: 8px; font-size: 12px; font-weight: 600; text-align: center; color: #e6e8ec; background: #171a21; }
+  .btn.pressed { background: #1d212b; }
+  .review { display: flex; flex-direction: column; gap: 8px; }
+  .fullmsg { border: 1px solid #2a2f3a; background: #171a21; border-radius: 8px; padding: 10px 11px; font-size: 12px; color: #e6e8ec; }
+  .tinylabel { font-size: 11px; color: #9aa1ac; }
+  .composer { display: flex; align-items: flex-start; gap: 6px; border: 1px solid #2a2f3a; border-radius: 16px; padding: 8px 10px; margin-top: auto; }
+  .composer span { font-size: 12px; color: #e6e8ec; flex: 1; line-height: 1.4; }
+  .progress { display: flex; gap: 4px; justify-content: center; margin: 22px 0 10px; }
+  .seg { width: 24px; height: 3px; border-radius: 2px; background: #2a2f3a; }
+  .seg.active { background: #5b8def; }
+  .footer { text-align: center; font-size: 11px; color: #9aa1ac; margin-top: 8px; }
+  .brand { text-align: center; font-size: 13px; font-weight: 700; color: #e6e8ec; margin-bottom: 4px; }
+  .hide { display: none; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="brand">&#128737; Trana</div>
+  <p class="caption" id="caption"></p>
+  <div class="row">
+    <div class="phone"><div class="screen">
+      <div class="status"><span>9:41</span><span>WhatsApp</span></div>
+      <div class="header">
+        <div class="avatar"></div>
+        <div><div class="name">Unknown Number</div><div class="sub" id="badge" style="visibility:hidden">Not a mutual connection</div></div>
+      </div>
+      <div class="msgs">
+        <div class="sender" id="sender1" style="visibility:hidden">Unknown Number</div>
+        <div class="dots" id="typing1" style="visibility:hidden"><span></span><span></span><span></span></div>
+        <div class="bubble" id="bubble1" style="opacity:0">hey you're <span class="hl" id="hl1">so mature for your age</span>, <span class="hl" id="hl2">don't tell your parents</span> about this. <span class="hl" id="hl3">let's talk on telegram</span> instead</div>
+        <div class="sender" id="sender2" style="visibility:hidden;margin-top:14px">Mom</div>
+        <div class="dots" id="typing2" style="visibility:hidden"><span></span><span></span><span></span></div>
+        <div class="bubble out" id="bubble2" style="opacity:0">hey, saw something concerning came through — can we talk?</div>
+      </div>
+    </div></div>
+    <div class="mid">
+      <div class="chip" id="chip1" style="opacity:0">Flattery</div>
+      <div class="chip" id="chip2" style="opacity:0">Secrecy</div>
+      <div class="chip" id="chip3" style="opacity:0">Platform-move</div>
+      <div class="arrow" id="arrowDown" style="opacity:0">&#8595;</div>
+      <div class="card" id="detectCard" style="opacity:0"><p>DETECTED: grooming</p><p>en &middot; 0.88</p></div>
+      <div class="arrow" id="arrowRight" style="opacity:0">&#8594;</div>
+    </div>
+    <div class="phone"><div class="screen">
+      <div class="status"><span>9:41</span><span>Trana</span></div>
+      <div class="header"><div class="name">Parent</div></div>
+      <div class="idle" id="parentIdle">No new alerts</div>
+      <div class="banner" id="parentBanner" style="opacity:0">Content-risk alert &middot; tap to view</div>
+      <div class="alert hide" id="parentAlert">
+        <div class="alertcard"><p>DETECTED: grooming | en | 0.88</p><p>CONTEXT: "hey &#9603;&#9603;&#9603; for your age, don't t&hellip;" &middot; not a mutual connection</p></div>
+        <p class="action" id="actionText">This may need immediate attention. Review the conversation now and consider locking the app. If the contact is an unknown adult, preserve the messages and report to the platform and the NCMEC CyberTipline.</p>
+        <div class="btn" id="reviewBtn">Review conversation</div>
+        <div class="review hide" id="reviewPanel">
+          <div class="tinylabel">Full conversation &middot; Unknown Number &middot; not a mutual connection</div>
+          <div class="fullmsg" id="fullmsg">"hey you're so mature for your age, don't tell your parents about this. let's talk on telegram instead"</div>
+          <div class="composer hide" id="composer"><span id="composerText"></span><span style="color:#5b8def">&#8594;</span></div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+  <div class="progress" id="progress"></div>
+  <div class="footer">Trana &middot; detects and alerts only, never blocks a message</div>
+</div>
+<script>
+var progressEl = document.getElementById('progress');
+for (var i = 0; i < 7; i++) { var s = document.createElement('div'); s.className = 'seg'; progressEl.appendChild(s); }
+var segs = progressEl.querySelectorAll('.seg');
+
+function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+function fadeStyle(el, t0, t1, ms, dy) {
+  var p = t1 > t0 ? clamp01((ms - t0) / (t1 - t0)) : (ms >= t0 ? 1 : 0);
+  el.style.opacity = p;
+  if (dy) el.style.transform = 'translateY(' + ((1 - p) * dy) + 'px)';
+}
+function vis(el, show) { el.style.visibility = show ? 'visible' : 'hidden'; }
+function toggleClass(el, cls, on) { el.classList.toggle(cls, on); }
+
+var COMPOSER_TEXT = "hey, saw something concerning came through — can we talk?";
+
+var CAPTIONS = [
+  [0, "Maya, 14, on WhatsApp. Her parent, elsewhere."],
+  [1500, "Maya sees the message normally — nothing is blocked or intercepted."],
+  [5000, "Trana analyzes it in parallel, via a sanctioned integration."],
+  [8000, "Detect and alert only. Nothing happens on Maya's phone."],
+  [10600, "Seconds later, the parent's phone gets a redacted alert — never the full message."],
+  [15500, "The system suggests. It never acts on its own."],
+  [18500, "The parent makes the call. Every time."],
+  [23400, "Trana — detects and alerts. Parents decide."]
+];
+var SEG_TIMES = [0, 1500, 5000, 8000, 10600, 15500, 18500, 23400];
+
+window.TOTAL_MS = 26500;
+
+window.renderAt = function (ms) {
+  var caption = CAPTIONS[0][1];
+  for (var c = 0; c < CAPTIONS.length; c++) if (ms >= CAPTIONS[c][0]) caption = CAPTIONS[c][1];
+  document.getElementById('caption').textContent = caption;
+
+  var activeSeg = -1;
+  for (var s = 0; s < SEG_TIMES.length; s++) if (ms >= SEG_TIMES[s]) activeSeg = s;
+  for (var j = 0; j < segs.length; j++) segs[j].classList.toggle('active', j <= activeSeg);
+
+  vis(document.getElementById('badge'), ms >= 1500);
+  vis(document.getElementById('sender1'), ms >= 1500);
+  vis(document.getElementById('typing1'), ms >= 1500 && ms < 3200);
+  fadeStyle(document.getElementById('bubble1'), 3200, 3600, ms, 6);
+
+  var flagged = ms >= 5000;
+  toggleClass(document.getElementById('hl1'), 'on', flagged);
+  toggleClass(document.getElementById('hl2'), 'on', flagged);
+  toggleClass(document.getElementById('hl3'), 'on', flagged);
+
+  fadeStyle(document.getElementById('chip1'), 5000, 5300, ms, 4);
+  fadeStyle(document.getElementById('chip2'), 5800, 6100, ms, 4);
+  fadeStyle(document.getElementById('chip3'), 6600, 6900, ms, 4);
+  fadeStyle(document.getElementById('arrowDown'), 6600, 6900, ms, 0);
+  fadeStyle(document.getElementById('detectCard'), 8000, 8400, ms, -4);
+  fadeStyle(document.getElementById('arrowRight'), 9800, 10100, ms, 0);
+
+  var idleEl = document.getElementById('parentIdle');
+  idleEl.style.display = ms >= 10600 ? 'none' : 'flex';
+  fadeStyle(document.getElementById('parentBanner'), 10600, 10900, Math.min(ms, 12400), -8);
+  if (ms >= 12400) document.getElementById('parentBanner').style.opacity = clamp01(1 - (ms - 12400) / 200);
+
+  document.getElementById('parentAlert').classList.toggle('hide', ms < 12600);
+  document.getElementById('actionText').classList.toggle('hide', ms >= 15500);
+  document.getElementById('reviewPanel').classList.toggle('hide', ms < 16300);
+  document.getElementById('reviewBtn').classList.toggle('pressed', ms >= 15500 && ms < 16300);
+  document.getElementById('composer').classList.toggle('hide', ms < 18500);
+  document.getElementById('fullmsg').classList.toggle('hide', ms >= 18500);
+
+  if (ms >= 18500) {
+    var p = clamp01((ms - 18500) / 2000);
+    var len = Math.round(p * COMPOSER_TEXT.length);
+    document.getElementById('composerText').textContent = COMPOSER_TEXT.slice(0, len);
+  } else {
+    document.getElementById('composerText').textContent = '';
+  }
+
+  vis(document.getElementById('sender2'), ms >= 21500);
+  vis(document.getElementById('typing2'), ms >= 21500 && ms < 23000);
+  fadeStyle(document.getElementById('bubble2'), 23000, 23400, ms, 6);
+};
+
+window.renderAt(0);
+</script>
+</body>
+</html>

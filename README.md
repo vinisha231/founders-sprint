@@ -13,6 +13,26 @@ concrete next action.
 > prototype does no blocking, no scraping, and no platform login. See
 > [`CLAUDE.md`](CLAUDE.md) for the full brief it's built from.
 
+## Demo video
+
+[`demo/grooming-alert-demo.mp4`](demo/grooming-alert-demo.mp4) — a ~27s silent,
+captioned video dramatizing the pipeline end to end: a message lands on a
+teenager's WhatsApp, Trana detects grooming signals (flattery, secrecy,
+platform-move) in parallel, alerts the parent in the exact `DETECTED:` /
+`CONTEXT:` / `SUGGESTED ACTION:` format the CLI produces, and the parent — not
+the system — reviews the conversation and reaches out to their child directly.
+Every line of text in it is pulled from a real run of
+[`examples/sample-stream.jsonl`](examples/sample-stream.jsonl) through the
+actual classifier, not invented for the video.
+
+It's rendered from [`demo/scene.html`](demo/scene.html), a self-contained page
+with **no wall-clock timers** — animation state is a pure function of time
+(`window.renderAt(ms)`), so [`demo/generate-video.mjs`](demo/generate-video.mjs)
+can capture it frame-by-frame with Playwright and encode it with ffmpeg for an
+exact, reproducible result (`node demo/generate-video.mjs`, after a one-time
+`npm install playwright && npx playwright install chromium` — kept out of this
+repo's `package.json` since the detector itself has zero runtime dependencies).
+
 ## What it does
 
 Three phases, one pipeline:
