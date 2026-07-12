@@ -143,7 +143,7 @@
     { category: "self-harm", langs: ["ru"], weight: 0.72, re: /хочу умереть|убить себя|режу себя/i },
     { category: "self-harm", langs: ["hi"], weight: 0.72, re: /मैं मरना चाहता|मरना चाहती|खुद को नुकसान/ },
 
-    { category: "violent-threat", langs: ["en"], weight: 0.65, re: /\b(i'?m going to (kill|hurt|beat)\s+you|i'?ll kill you|i will hurt you|bring a (gun|knife)|shoot up|you'?re dead)\b/i },
+    { category: "violent-threat", langs: ["en"], weight: 0.65, re: /\b((i'?m (going to|gonna)|imma|ima)\s+(kill|hurt|beat)\s+(you|u|ya)(\s+up)?|i'?ll (kill|hurt|beat)\s+(you|u|ya)(\s+up)?|i will (kill|hurt|beat)\s+(you|u|ya)(\s+up)?|bring a (gun|knife)|shoot up|(you'?re|ur) dead)\b/i },
     { category: "violent-threat", langs: ["es"], weight: 0.65, re: /\b(te voy a (matar|hacer da[nñ]o|golpear)|te mato|voy a llevar (una pistola|un cuchillo))\b/i },
     { category: "violent-threat", langs: ["fr"], weight: 0.65, re: /\b(je vais te (tuer|frapper|faire du mal)|je te tue)\b/i },
     { category: "violent-threat", langs: ["pt"], weight: 0.65, re: /\b(vou te (matar|machucar|bater)|te mato)\b/i },
