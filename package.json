@@ -9,7 +9,8 @@
   "type": "commonjs",
   "scripts": {
     "test": "node test.js",
-    "demo": "node cli.js --file examples/sample-stream.jsonl"
+    "demo": "node cli.js --file examples/sample-stream.jsonl",
+    "demo:aws": "CONTENT_RISK_LANGUAGE_BACKEND=aws-comprehend node cli.js --file examples/sample-stream.jsonl --use-aws"
   },
   "files": [
     "src/",
@@ -19,5 +20,8 @@
   "license": "MIT",
   "engines": {
     "node": ">=14"
+  },
+  "optionalDependencies": {
+    "@aws-sdk/client-comprehend": "^3.0.0"
   }
 }

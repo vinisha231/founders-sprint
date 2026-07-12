@@ -11,6 +11,18 @@
    detector for routing to the right lexicons — a production
    build would swap in a trained model (e.g. fastText lid.176),
    but the classifier interface stays identical.
+
+   detectLanguage() (below) is the synchronous, always-available,
+   fully local default — it's what classify()/processMessage() use
+   and what every existing test exercises. detectLanguageAsync()
+   is an OPT-IN pluggable wrapper: set
+   CONTENT_RISK_LANGUAGE_BACKEND=aws-comprehend to route detection
+   through Amazon Comprehend (src/aws-language.js) instead, with an
+   automatic, silent-to-the-caller fallback to this same local
+   heuristic if the AWS SDK isn't installed, credentials aren't
+   configured, or the call fails for any reason. Detection-only —
+   classification still runs natively per language; nothing here
+   translates message text before classifying it.
    ============================================================ */
 
 // Non-Latin scripts map straight to a language via Unicode ranges.
@@ -85,4 +97,37 @@ function detectLanguage(text) {
   return { language: best, name: NAMES[best] || best, confidence: Math.round(confidence * 100) / 100 };
 }
 
-module.exports = { detectLanguage, NAMES, STOPWORDS, SCRIPTS };
+const DEFAULT_BACKEND = "local";
+const BACKEND_ENV_VAR = "CONTENT_RISK_LANGUAGE_BACKEND";
+
+/* Async, pluggable detection. Returns the same shape as detectLanguage()
+   plus a `source` field ("local-heuristic" or "aws-comprehend") and,
+   when a remote backend was requested but unavailable, a `fallback`
+   note explaining why. Never throws — a failed remote call always
+   degrades to the local heuristic rather than breaking the pipeline. */
+async function detectLanguageAsync(text, opts = {}) {
+  const backend = opts.backend || process.env[BACKEND_ENV_VAR] || DEFAULT_BACKEND;
+
+  if (backend === "local") {
+    return { ...detectLanguage(text), source: "local-heuristic" };
+  }
+
+  if (backend === "aws-comprehend") {
+    try {
+      // Lazy require: keeps this module (and its callers) loadable and
+      // testable with zero network/SDK dependency when AWS isn't in use.
+      const { detectLanguageAWS } = require("./aws-language.js");
+      return await detectLanguageAWS(text);
+    } catch (err) {
+      return {
+        ...detectLanguage(text),
+        source: "local-heuristic",
+        fallback: `aws-comprehend unavailable: ${err.message}`,
+      };
+    }
+  }
+
+  throw new Error(`Unknown language backend "${backend}". Use "local" or "aws-comprehend".`);
+}
+
+module.exports = { detectLanguage, detectLanguageAsync, NAMES, STOPWORDS, SCRIPTS, DEFAULT_BACKEND, BACKEND_ENV_VAR };
