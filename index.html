@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multilingual Content-Risk Detector — Demo</title>
+<meta name="description" content="A runnable demo of a child-safety detection/alerting layer: paste a message, see the risk classification and suggested parent action. Detects and alerts only — never blocks or intercepts.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="page-header">
+    <h1>🛡 Multilingual Content-Risk Detector</h1>
+    <p class="tagline">Detect &amp; alert only — this demo (and the system it demonstrates) never blocks, intercepts, or deletes anything. Everything below runs entirely in your browser tab; nothing you type is sent anywhere.</p>
+  </header>
+
+  <section class="scope-banner">
+    <strong>Scope — read this first.</strong> This system <strong>detects and alerts. It does not
+    intercept or block</strong> messages before a child sees them on Instagram / YouTube /
+    TikTok — no third-party app has that platform access. The honest ceiling is:
+    detect fast, alert the parent immediately with context, and let the <strong>parent</strong>
+    take the action (lock the app, contact the platform, talk to the child).
+    See the <a href="https://github.com/vinisha231/founders-sprint" target="_blank" rel="noopener">full source and README</a> for the real Node/CLI pipeline this page ports.
+  </section>
+
+  <main>
+    <section class="demo-panel">
+      <form id="demo-form">
+        <label for="demo-text">Message text (any language)</label>
+        <textarea id="demo-text" rows="4" placeholder="Type or paste a message to classify…" required></textarea>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="demo-direction">Direction</label>
+            <select id="demo-direction">
+              <option value="incoming">Incoming (to child)</option>
+              <option value="outgoing">Outgoing (from child)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="demo-relationship">Sender relationship</label>
+            <select id="demo-relationship">
+              <option value="unknown">Unknown</option>
+              <option value="mutual">Mutual connection</option>
+              <option value="not-mutual">Not a mutual connection</option>
+            </select>
+          </div>
+        </div>
+
+        <button type="submit" class="analyze-btn">Analyze</button>
+      </form>
+
+      <div class="examples">
+        <span class="examples-label">Try an example:</span>
+        <div id="demo-examples" class="example-buttons"></div>
+      </div>
+
+      <div id="demo-result" class="result-panel">
+        <p class="placeholder">Results will appear here after you click Analyze.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="page-footer">
+    <p>Heuristic lexicon+rules demo, not a trained model — see
+      <a href="https://github.com/vinisha231/founders-sprint" target="_blank" rel="noopener">README.md</a>
+      for design choices, the full test suite, and the CLI. No scraping, no platform login, no auto-blocking.</p>
+  </footer>
+
+  <script src="web-demo.js"></script>
+</body>
+</html>
