@@ -1,21 +1,24 @@
 {
-  "name": "content-risk-detector",
+  "name": "ship-guard",
   "version": "1.0.0",
-  "description": "Multilingual content-risk detection + parent alerting. Detect-and-inform only — never blocks or intercepts.",
+  "description": "Build → Validate → Secure: scan a git diff for missing tests, code smells, and security issues before you ship.",
   "bin": {
-    "content-risk": "cli.js"
+    "ship-guard": "cli.js"
   },
-  "main": "src/pipeline.js",
+  "main": "scanner.js",
   "type": "commonjs",
   "scripts": {
-    "test": "node test.js",
-    "demo": "node cli.js --file examples/sample-stream.jsonl"
+    "scan": "node cli.js",
+    "scan:all": "node cli.js --all",
+    "install-hook": "node install-hook.js",
+    "test": "node test.js && node test-usecases.js"
   },
   "files": [
-    "src/",
-    "cli.js"
+    "scanner.js",
+    "cli.js",
+    "install-hook.js"
   ],
-  "keywords": ["child-safety", "content-moderation", "multilingual", "grooming-detection", "parental-alerts"],
+  "keywords": ["security", "sast", "git-hook", "pre-commit", "code-review", "ci"],
   "license": "MIT",
   "engines": {
     "node": ">=14"
