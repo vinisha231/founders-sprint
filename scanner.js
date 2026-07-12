@@ -242,7 +242,10 @@
     },
   ];
 
-  const TEST_SIGNAL_RE = /\b(?:describe|it\(|test\(|expect\(|assert|@Test|def test_|it should)\b/;
+  // Matches common test signals. Note the call-style alternatives use \s*\(
+  // rather than a trailing \b — a \b right after "(" never matches (both sides
+  // are non-word chars), which would silently disable it(/test(/expect( detection.
+  const TEST_SIGNAL_RE = /\b(?:describe|context|it|test|expect)\s*\(|\bassert\b|@Test\b|def test_|it should/;
 
   /* Run a rule set over normalized lines. `label` prefixes finding location
      (used by the CLI to carry a filename). */

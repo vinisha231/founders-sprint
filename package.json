@@ -11,7 +11,7 @@
     "scan": "node cli.js",
     "scan:all": "node cli.js --all",
     "install-hook": "node install-hook.js",
-    "test": "node test.js"
+    "test": "node test.js && node test-usecases.js"
   },
   "files": [
     "scanner.js",

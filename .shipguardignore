@@ -2,7 +2,9 @@
 
 # Intentionally-insecure demo fixtures, not real application code.
 samples.js
+use-cases.js
 test.js
+test-usecases.js
 
 # The rule engine itself: its rule definitions necessarily contain the very
 # patterns they match (e.g. the React dangerous-HTML prop name), so scanning
