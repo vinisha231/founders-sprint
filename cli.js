@@ -165,7 +165,7 @@ function main() {
 
   // De-dupe the "no tests" heuristic across files: judge on the whole changeset.
   allValidate = allValidate.filter((f) => f.id !== "no-tests" && f.id !== "tests-present");
-  const hasTests = /\b(?:describe|it\(|test\(|expect\(|assert|@Test|def test_)\b/.test(combinedSrc);
+  const hasTests = /\b(?:describe|context|it|test|expect)\s*\(|\bassert\b|@Test\b|def test_|it should/.test(combinedSrc);
   const hasLogic = /(?:function |=>|def |class |app\.(?:get|post|put|delete)|router\.)/.test(combinedSrc);
   if (hasLogic && !hasTests) {
     allValidate.push({ id: "no-tests", severity: "med", title: "No automated tests detected in this changeset",

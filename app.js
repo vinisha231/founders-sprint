@@ -102,9 +102,32 @@ function runPipeline() {
   document.querySelectorAll(".phase-chip").forEach((c) => c.classList.add("active"));
 }
 
-/* ---------------- Samples ---------------- */
+/* ---------------- Samples & use-case gallery ---------------- */
 
 const SAMPLES = window.SHIP_GUARD_SAMPLES || {};
+const USE_CASES = window.SHIP_GUARD_USE_CASES || [];
+
+// Populate the "50 use cases" dropdown, grouped by category via <optgroup>.
+const usecaseSelect = document.getElementById("usecase-select");
+const useCaseById = {};
+(function buildGallery() {
+  const groups = {};
+  for (const uc of USE_CASES) {
+    useCaseById[uc.id] = uc;
+    (groups[uc.category] = groups[uc.category] || []).push(uc);
+  }
+  for (const [category, list] of Object.entries(groups)) {
+    const group = document.createElement("optgroup");
+    group.label = `${category} (${list.length})`;
+    for (const uc of list) {
+      const opt = document.createElement("option");
+      opt.value = uc.id;
+      opt.textContent = `${uc.vuln ? "⚠" : "✓"} ${uc.title}`;
+      group.appendChild(opt);
+    }
+    usecaseSelect.appendChild(group);
+  }
+})();
 
 /* ---------------- Events ---------------- */
 
@@ -116,11 +139,22 @@ document.getElementById("clear-btn").addEventListener("click", () => {
   emptyState.classList.remove("hidden");
   document.querySelectorAll(".phase-chip").forEach((c) => c.classList.remove("active"));
   document.getElementById("sample-select").value = "";
+  usecaseSelect.value = "";
 });
 document.getElementById("sample-select").addEventListener("change", (e) => {
   const key = e.target.value;
   if (SAMPLES[key]) {
     codeInput.value = SAMPLES[key];
+    usecaseSelect.value = "";
+    updateLineCount();
+    runPipeline();
+  }
+});
+usecaseSelect.addEventListener("change", (e) => {
+  const uc = useCaseById[e.target.value];
+  if (uc) {
+    codeInput.value = uc.code;
+    document.getElementById("sample-select").value = "";
     updateLineCount();
     runPipeline();
   }

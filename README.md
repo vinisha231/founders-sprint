@@ -68,7 +68,24 @@ the lines a PR changed against its base branch and fails the check on a blocking
 verdict — drop it into any repo's `.github/workflows/`.
 
 All three surfaces (web app, CLI, Action) share **one** engine, so the verdict is
-identical everywhere. Run the engine's own tests with `node test.js`.
+identical everywhere.
+
+## Tests & use cases
+
+The engine ships with **50 unit tests** and a corpus of **50 real-world use
+cases**, each with the verdict/rules it should produce:
+
+```bash
+npm test        # runs both suites
+node test.js            # 50 unit tests (rule true/false positives, verdicts, diffs, report)
+node test-usecases.js   # validates all 50 scenarios in use-cases.js
+```
+
+The 50 use cases in [`use-cases.js`](use-cases.js) cover SQL/command injection,
+secrets, IDOR, missing auth, XSS, path traversal, transport, cookies, crypto,
+`eval`, error leakage, and clean/safe counterparts. They double as the web app's
+**"50 use cases" gallery** — pick any from the dropdown to load it into the
+scanner and see the verdict.
 
 ## Run the web app locally
 
@@ -94,8 +111,9 @@ tests, a proper SAST tool, or human review.
 ## Files
 
 - [`scanner.js`](scanner.js) — the shared rule engine (browser + Node)
-- [`index.html`](index.html) · [`styles.css`](styles.css) · [`app.js`](app.js) — the web app
-- [`cli.js`](cli.js) · [`install-hook.js`](install-hook.js) · [`test.js`](test.js) — the CLI, hook installer, and tests
+- [`index.html`](index.html) · [`styles.css`](styles.css) · [`app.js`](app.js) · [`samples.js`](samples.js) — the web app
+- [`cli.js`](cli.js) · [`install-hook.js`](install-hook.js) — the CLI and hook installer
+- [`test.js`](test.js) · [`test-usecases.js`](test-usecases.js) · [`use-cases.js`](use-cases.js) — 50 unit tests, the use-case runner, and the 50-scenario corpus
 - [`.github/workflows/ship-guard.yml`](.github/workflows/ship-guard.yml) — the PR check
 - [`CLAUDE.md`](CLAUDE.md) — the Build → Validate → Secure methodology the tool enforces
 - [`.cursorrules`](.cursorrules) · [`system-prompt.md`](system-prompt.md) — the same methodology as a drop-in agent prompt

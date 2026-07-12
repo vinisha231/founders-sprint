@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 "use strict";
 
-/* Minimal test suite for the shared scanner engine.
-   Run: node test.js  (or) npm test                                    */
+/* 50 unit tests for the shared scanner engine (scanner.js).
+   Run: node test.js   ·   full validation: npm test                    */
 
 const SG = require("./scanner.js");
 
 let pass = 0, fail = 0;
+const fails = [];
 function check(name, cond) {
-  if (cond) { pass++; console.log("  ✓ " + name); }
-  else { fail++; console.log("  ✗ " + name); }
+  if (cond) { pass++; }
+  else { fail++; fails.push(name); }
+  console.log(`  ${cond ? "✓" : "✗"} ${name}`);
 }
 
 function scan(src) {
@@ -18,91 +20,81 @@ function scan(src) {
   const secure = SG.runSecure(src, lines);
   return { validate, secure, verdict: SG.decideVerdict(validate, secure) };
 }
-const hasId = (arr, id) => arr.some((f) => f.id === id);
+const sHas = (r, id) => r.secure.some((f) => f.id === id);
+const vHas = (r, id) => r.validate.some((f) => f.id === id);
 
-console.log("\nSECURE rules");
-{
-  const r = scan(`const invoice = db.query("SELECT * FROM invoices WHERE id = " + req.params.id);`);
-  check("flags SQL injection", hasId(r.secure, "sql-injection"));
-}
-{
-  const r = scan(`const note = Invoice.findById(req.params.id);`);
-  check("flags broken object-level auth (IDOR)", hasId(r.secure, "broken-object-auth"));
-}
-{
-  const r = scan(`const apiKey = "AKIAIOSFODNN7EXAMPLE";`);
-  check("flags hardcoded AWS key", hasId(r.secure, "hardcoded-secret"));
-}
-{
-  const r = scan(`const url = "postgres://admin:SuperSecret123@db.internal:5432/app";`);
-  check("flags connection string with creds", hasId(r.secure, "conn-string"));
-}
-{
-  const r = scan(`app.get('/api/x', (req, res) => { res.send('ok'); });`);
-  check("flags new route with no auth", hasId(r.secure, "missing-auth"));
-}
-{
-  const r = scan(`fetch('http://payments.partner.com/charge');`);
-  check("flags insecure http:// call", hasId(r.secure, "http-url"));
-}
-{
-  const r = scan(`el.innerHTML = req.body.text;`);
-  check("flags XSS via innerHTML", hasId(r.secure, "xss-innerhtml"));
-}
+console.log("\nSECURE — true positives");
+check("1. SQL injection via concatenation", sHas(scan(`db.query("SELECT * FROM t WHERE id=" + req.params.id)`), "sql-injection"));
+check("2. SQL injection via template literal", sHas(scan("db.query(`SELECT * FROM t WHERE id=${req.body.id}`)"), "sql-injection"));
+check("3. Command injection via template", sHas(scan("exec(`ls ${req.query.dir}`)"), "command-injection"));
+check("4. Command injection via concat", sHas(scan(`execSync("rm " + req.body.f)`), "command-injection"));
+check("5. Hardcoded AWS key", sHas(scan(`const k = "AKIAIOSFODNN7EXAMPLE"`), "hardcoded-secret"));
+check("6. Hardcoded password literal", sHas(scan(`const password = "letmein99"`), "hardcoded-secret"));
+check("7. Stripe live key", sHas(scan(`const k = "sk-live-ABCD1234567890efgh"`), "hardcoded-secret"));
+check("8. GitHub token", sHas(scan(`const t = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"`), "hardcoded-secret"));
+check("9. Connection string with creds", sHas(scan(`const u = "postgres://user:pw@host:5432/db"`), "conn-string"));
+check("10. Path traversal via readFile", sHas(scan(`fs.readFile(req.query.path)`), "path-traversal"));
+check("11. Path traversal via sendFile", sHas(scan(`res.sendFile(req.params.file)`), "path-traversal"));
+check("12. XSS via innerHTML", sHas(scan(`el.innerHTML = req.body.html`), "xss-innerhtml"));
+check("13. XSS via document.write", sHas(scan(`document.write(location.hash)`), "xss-innerhtml"));
+check("14. XSS via dangerouslySetInnerHTML", sHas(scan(`<p dangerouslySetInnerHTML={{__html: x}} />`), "xss-innerhtml"));
+check("15. Broken object auth (findById)", sHas(scan(`User.findById(req.params.id)`), "broken-object-auth"));
+check("16. Broken object auth (findByPk)", sHas(scan(`Order.findByPk(req.params.orderId)`), "broken-object-auth"));
+check("17. Insecure HTTP call", sHas(scan(`fetch("http://api.example.com/x")`), "http-url"));
+check("18. Insecure cookie", sHas(scan(`res.cookie('session', tok, { maxAge: 1 })`), "insecure-cookie"));
+check("19. Weak crypto MD5", sHas(scan(`crypto.createHash('md5')`), "weak-crypto"));
+check("20. Weak crypto SHA1", sHas(scan(`crypto.createHash('sha1')`), "weak-crypto"));
+check("21. eval of input", sHas(scan(`const r = eval(req.body.x)`), "eval-use"));
+check("22. new Function of input", sHas(scan(`const f = new Function("return " + x)`), "eval-use"));
+check("23. Error leak (stack)", sHas(scan(`res.status(500).send(err.stack)`), "error-leak"));
+check("24. Error leak (message)", sHas(scan(`res.json({ error: err.message })`), "error-leak"));
+check("25. Missing auth on new route", sHas(scan(`app.get('/x', (req, res) => res.send('ok'))`), "missing-auth"));
+
+console.log("\nSECURE — true negatives (no false positives)");
+check("26. Parameterized query is safe", !sHas(scan(`db.query('SELECT * FROM t WHERE id=$1', [id])`), "sql-injection"));
+check("27. execFile is safe", !sHas(scan(`execFile("ls", ["-la", dir])`), "command-injection"));
+check("28. Env-var secret is safe", !sHas(scan(`const key = process.env.API_KEY`), "hardcoded-secret"));
+check("29. textContent is safe", !sHas(scan(`el.textContent = req.body.html`), "xss-innerhtml"));
+check("30. Owner-scoped findOne is safe", !sHas(scan(`Model.findOne({ where: { id: req.params.id, userId: req.user.id } })`), "broken-object-auth"));
+check("31. HTTPS call is safe", !sHas(scan(`fetch("https://api.example.com/x")`), "http-url"));
+check("32. localhost HTTP is not flagged", !sHas(scan(`fetch("http://localhost:3000/x")`), "http-url"));
+check("33. Cookie with HttpOnly is safe", !sHas(scan(`res.cookie('session', tok, { httpOnly: true })`), "insecure-cookie"));
+check("34. path.basename resolved is safe", !sHas(scan(`fs.readFileSync(path.basename(req.params.file))`), "path-traversal"));
+check("35. Route with requireAuth is not missing-auth", !sHas(scan(`app.get('/x', requireAuth, (req, res) => res.send('ok'))`), "missing-auth"));
 
 console.log("\nVALIDATE rules");
+check("36. Flags console.log", vHas(scan(`function f(){ console.log(x); return 1 }`), "console-log"));
+check("37. Flags TODO", vHas(scan(`function f(){ return 1 } // TODO later`), "todo-fixme"));
+check("38. Flags empty catch", vHas(scan(`try { go() } catch (e) {}`), "empty-catch"));
+check("39. Flags missing tests for logic", vHas(scan(`function calc(a){ return a * 2 }`), "no-tests"));
+check("40. Detects tests present (describe/it)", vHas(scan(`describe('x', () => { it('works', () => {}) })`), "tests-present"));
+check("41. Detects tests present (test/expect)", vHas(scan(`test('x', () => { expect(1).toBe(1) })`), "tests-present"));
+check("42. No false console.log on clean code", !vHas(scan(`const x = compute(2)`), "console-log"));
+
+console.log("\nVERDICT logic");
+check("43. Critical secret => block", scan(`const k = "AKIAIOSFODNN7EXAMPLE"`).verdict.level === "block");
+check("44. High finding => block", scan(`el.innerHTML = req.body.x`).verdict.level === "block");
+check("45. Medium-only secure => warn", scan(`fetch("http://api.example.com/x")`).verdict.level === "warn");
+check("46. Validate med (empty catch) => warn", scan(`try { go() } catch (e) {}`).verdict.level === "warn");
+check("47. Clean non-logic => pass", scan(`const total = a + b`).verdict.level === "pass");
+
+console.log("\nDIFF handling");
 {
-  const r = scan(`function foo() { console.log('debug'); return 1; }`);
-  check("flags leftover console.log", hasId(r.validate, "console-log"));
-}
-{
-  const r = scan(`function foo() { return 1; } // TODO fix this`);
-  check("flags TODO", hasId(r.validate, "todo-fixme"));
-}
-{
-  const r = scan(`function foo() { return 1; }`);
-  check("flags missing tests for logic", hasId(r.validate, "no-tests"));
+  const added = `--- a/f.js\n+++ b/f.js\n@@ -1,1 +1,2 @@\n const x=1;\n+const k = "AKIAIOSFODNN7EXAMPLE";`;
+  check("48. Scans added diff lines", sHas(scan(added), "hardcoded-secret"));
+  const removed = `--- a/f.js\n+++ b/f.js\n@@ -1,2 +1,1 @@\n-const k = "AKIAIOSFODNN7EXAMPLE";\n const x=1;`;
+  check("49. Ignores removed diff lines", !sHas(scan(removed), "hardcoded-secret"));
 }
 
-console.log("\nVerdicts & false-positives");
+console.log("\nREPORT format");
 {
-  const clean = `app.get('/x', requireAuth, async (req,res) => {
-    const row = await Model.findOne({ where: { id: req.params.id, ownerId: req.user.id } });
-    res.json({ id: row.id });
-  });
-  describe('x', () => { it('works', () => expect(1).toBe(1)); });`;
-  const r = scan(clean);
-  check("clean owner-scoped + auth + tests => not blocked", r.verdict.level !== "block");
-  check("clean code raises no secure findings", r.secure.filter(f => f.severity !== "ok").length === 0);
-}
-{
-  const r = scan(`el.textContent = req.body.text;`);
-  check("textContent is NOT flagged as XSS", !hasId(r.secure, "xss-innerhtml"));
-}
-{
-  const r = scan(`fetch('http://localhost:3000/api');`);
-  check("localhost http is NOT flagged", !hasId(r.secure, "http-url"));
+  const r = scan(`db.query("SELECT * FROM t WHERE id=" + req.params.id)`);
+  const report = SG.buildShipReport(r.verdict, r.validate, r.secure);
+  check("50. Ship report has BUILD/VALIDATE/SECURE + human-review flag",
+    /BUILD:/.test(report) && /VALIDATE:/.test(report) && /SECURE:/.test(report) && /human review/i.test(report));
 }
 
-console.log("\nDiff handling");
-{
-  const diff = `--- a/app.js
-+++ b/app.js
-@@ -1,2 +1,3 @@
- const x = 1;
--const safe = 2;
-+const apiKey = "sk-live-abcdef1234567890";`;
-  const r = scan(diff);
-  check("scans added diff lines", hasId(r.secure, "hardcoded-secret"));
-
-  const diff2 = `--- a/app.js
-+++ b/app.js
-@@ -1,2 +1,1 @@
--const apiKey = "AKIAIOSFODNN7EXAMPLE";
- const x = 1;`;
-  const r2 = scan(diff2);
-  check("ignores REMOVED diff lines", !hasId(r2.secure, "hardcoded-secret"));
-}
-
-console.log(`\n${fail === 0 ? "✓ PASS" : "✗ FAIL"} — ${pass} passed, ${fail} failed\n`);
+console.log(`\n${fail === 0 ? "✓ PASS" : "✗ FAIL"} — ${pass} passed, ${fail} failed`);
+if (fail) console.log("  failed: " + fails.join(", "));
+console.log("");
 process.exit(fail === 0 ? 0 : 1);
