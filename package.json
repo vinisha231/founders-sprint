@@ -1,0 +1,23 @@
+{
+  "name": "content-risk-detector",
+  "version": "1.0.0",
+  "description": "Multilingual content-risk detection + parent alerting. Detect-and-inform only — never blocks or intercepts.",
+  "bin": {
+    "content-risk": "cli.js"
+  },
+  "main": "src/pipeline.js",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node test.js",
+    "demo": "node cli.js --file examples/sample-stream.jsonl"
+  },
+  "files": [
+    "src/",
+    "cli.js"
+  ],
+  "keywords": ["child-safety", "content-moderation", "multilingual", "grooming-detection", "parental-alerts"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=14"
+  }
+}
