@@ -41,7 +41,36 @@ are explicitly flagged for human review — the tool never pretends a hole is fi
    - **✅ Reasonably clean handler** → owner-scoped query, auth, rate limit, tests → *Clear to ship*
 3. Or paste your own code and hit **Run pipeline** (⌘/Ctrl + Enter).
 
-## Run it locally
+## Add it to a project (no more pasting)
+
+The same rule engine ([`scanner.js`](scanner.js)) also runs as a CLI over your
+real `git diff`, so it can live inside your workflow instead of a browser tab.
+
+### Scan your staged changes
+```bash
+node cli.js            # scan staged changes
+node cli.js --all      # scan everything vs the default branch
+node cli.js src/*.js   # scan specific files
+```
+Exit code is **1** on a "Do not ship" verdict, **0** otherwise — so it plugs
+straight into hooks and CI. Add `--no-fail` for report-only.
+
+### Install as a pre-commit hook
+```bash
+node install-hook.js   # writes .git/hooks/pre-commit
+```
+Now every commit is scanned automatically; a blocking verdict stops the commit.
+Bypass once with `git commit --no-verify`.
+
+### Run on pull requests (GitHub Action)
+[`.github/workflows/ship-guard.yml`](.github/workflows/ship-guard.yml) scans only
+the lines a PR changed against its base branch and fails the check on a blocking
+verdict — drop it into any repo's `.github/workflows/`.
+
+All three surfaces (web app, CLI, Action) share **one** engine, so the verdict is
+identical everywhere. Run the engine's own tests with `node test.js`.
+
+## Run the web app locally
 
 No build step, no dependencies — it's plain HTML/CSS/JS.
 
@@ -64,6 +93,9 @@ tests, a proper SAST tool, or human review.
 
 ## Files
 
-- [`index.html`](index.html) · [`styles.css`](styles.css) · [`app.js`](app.js) — the app
-- [`CLAUDE.md`](CLAUDE.md) — the Build → Validate → Secure methodology the app enforces
+- [`scanner.js`](scanner.js) — the shared rule engine (browser + Node)
+- [`index.html`](index.html) · [`styles.css`](styles.css) · [`app.js`](app.js) — the web app
+- [`cli.js`](cli.js) · [`install-hook.js`](install-hook.js) · [`test.js`](test.js) — the CLI, hook installer, and tests
+- [`.github/workflows/ship-guard.yml`](.github/workflows/ship-guard.yml) — the PR check
+- [`CLAUDE.md`](CLAUDE.md) — the Build → Validate → Secure methodology the tool enforces
 - [`.cursorrules`](.cursorrules) · [`system-prompt.md`](system-prompt.md) — the same methodology as a drop-in agent prompt

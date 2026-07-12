@@ -1,0 +1,10 @@
+# Files Ship Guard should not scan (gitignore-style globs).
+
+# Intentionally-insecure demo fixtures, not real application code.
+samples.js
+test.js
+
+# The rule engine itself: its rule definitions necessarily contain the very
+# patterns they match (e.g. the React dangerous-HTML prop name), so scanning
+# it produces meaningless self-references. Standard practice for a linter.
+scanner.js
