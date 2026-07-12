@@ -23,7 +23,8 @@ Three phases, one pipeline:
    A non-sanctioned source (scraping, private API) is **refused**, not worked
    around.
 2. **Classify** ([`src/classifier.js`](src/classifier.js)) — detects language
-   first ([`src/language.js`](src/language.js)), then runs multilingual lexicons
+   first ([`src/language.js`](src/language.js); optionally via AWS Comprehend,
+   see below), then runs multilingual lexicons
    ([`src/lexicons.js`](src/lexicons.js)) for five categories:
    sexual solicitation · **grooming** · harassment/bullying · self-harm ·
    violent threats. Grooming is multi-signal (secrecy + platform-move + meeting +
@@ -48,6 +49,11 @@ node cli.js "ich kann nicht mehr" --direction outgoing
 
 # A whole stream (one JSON message per line) → immediate alerts + daily summary
 npm run demo        # runs cli.js --file examples/sample-stream.jsonl
+
+# Same, but detecting language via AWS Comprehend instead of the local
+# heuristic (falls back to local automatically if unavailable) — see
+# "Optional: AWS Comprehend language detection" below before using this.
+npm run demo:aws
 ```
 
 Example output:
@@ -74,17 +80,58 @@ and consider locking the app...
   production build would swap in a multilingual model behind the same interface —
   the pipeline shape (ingest → classify → route) stays identical.
 
+## Optional: AWS Comprehend language detection
+
+The local heuristic in `src/language.js` is the default and requires no setup.
+As a pluggable alternative, [`src/aws-language.js`](src/aws-language.js) can
+route language **detection only** (not translation, not classification)
+through Amazon Comprehend's `DetectDominantLanguage`:
+
+```bash
+npm install @aws-sdk/client-comprehend   # optional dependency, not installed by default
+export AWS_REGION=us-east-1              # + standard AWS credential resolution
+node cli.js "some message" --use-aws
+# or: CONTENT_RISK_LANGUAGE_BACKEND=aws-comprehend node cli.js "some message"
+```
+
+Why Comprehend and not Translate: `DetectDominantLanguage` is purpose-built for
+language ID — cheaper and more accurate on short text than paying for a
+translation call just to read back its source-language side effect. And
+critically, this is **detection-only** — the classifier still runs the native
+per-language lexicons against the original text; nothing gets translated to
+English before classifying, which would lose the slang and coded language
+grooming detection depends on (see "Design choices" above).
+
+**This is opt-in and fails safe.** If the SDK isn't installed, credentials
+aren't configured, or the API call fails for any reason, detection
+automatically and silently-to-the-pipeline falls back to the local heuristic
+— the `note:`/`fallback` field in the CLI/JSON output tells you when that
+happened. The base install, `npm test`, and `npm run demo` never touch AWS or
+the network; `@aws-sdk/client-comprehend` is an `optionalDependency` and is
+lazy-required only when `--use-aws` / `CONTENT_RISK_LANGUAGE_BACKEND` is set.
+
+**Privacy note.** Enabling this backend sends message text to AWS — a
+third-party processor — for language identification. That's a real
+deployment decision (parent disclosure, a data-processing agreement with
+AWS, data-retention settings on the Comprehend side) that this integration
+makes *possible*, not one it makes *for you*. The default, credential-free
+path never leaves the machine.
+
 ## Tests
 
 ```bash
-npm test    # 47 checks: language detection, every category, direction gating,
-            # multilingual self-harm, redaction, alert routing/format, and the
-            # ingestion guardrail (no network/shell imports).
+npm test    # 58 checks: language detection, every category, direction gating,
+            # multilingual self-harm, redaction, alert routing/format, the
+            # ingestion guardrail (no network/shell imports), and the AWS
+            # backend's fallback behavior (exercised without real AWS
+            # credentials, since the SDK is an optional dependency).
 ```
 
 ## Not in scope (by design)
 
 - No pre-delivery blocking on closed platforms — impossible, not built.
 - No scraping, private/unofficial endpoints, or credential automation.
-- No routing of a child's content to anyone but the designated parent/guardian.
+- No routing of a child's content to anyone but the designated parent/guardian
+  — except, if you explicitly opt into the AWS Comprehend backend above, the
+  message text sent to AWS for language ID only (see the privacy note above).
 - No general surveillance — this is safety-risk detection, not blanket monitoring.

@@ -59,6 +59,15 @@ A content-risk detection agent that:
   (mutual connection vs. not, if available).
 - Prefer genuinely multilingual pipelines over translate-to-English-then-classify
   — translation loses tone, slang, and coded language that matters for grooming.
+- Language **detection** may be delegated to an external service (e.g. Amazon
+  Comprehend) if useful for accuracy — that's a detection-quality choice, not a
+  scope violation, as long as it stays detection-only. Classification must
+  still run natively per detected language, never translate-then-classify. Any
+  such integration must (a) be opt-in and clearly disclosed, not silently
+  wired in as the default, (b) degrade gracefully to a local/offline detector
+  if the service is unavailable rather than breaking detection, and (c) be
+  documented as sending message text to that third party — see the privacy
+  note in README.md's "Optional: AWS Comprehend language detection" section.
 
 ## PHASE 3 — PARENT ALERTING
 
