@@ -127,6 +127,11 @@
     { category: "grooming", signal: "age-probe", langs: ["de"], weight: 0.45, re: /\b(wie alt bist du|sind deine eltern (da|zuhause)|bist du allein)\b/i },
     { category: "grooming", signal: "flattery", langs: ["en"], weight: 0.4, re: /\b(you'?re so mature|mature for your age|you'?re (so )?different|you'?re not like other|our little)\b/i },
     { category: "grooming", signal: "flattery", langs: ["es"], weight: 0.4, re: /\b(muy madura? para tu edad|eres diferente|no eres como)\b/i },
+    { category: "grooming", signal: "enticement", langs: ["en"], weight: 0.5, re: /\b(i('| ha)ve got|i('ll| will)? (get|bring|give|hook you up with))\s+(you\s+)?(some\s+)?(drugs?|weed|pills?|molly|coke|vape|alcohol|beer|wine)\b|\b(free|some)\s+(weed|drugs?|alcohol|pills?)\s+for\s+you\b/i },
+    { category: "grooming", signal: "enticement", langs: ["es"], weight: 0.5, re: /\b(tengo|te consigo|te doy|te traigo)\s+(droga|drogas|marihuana|pastillas|alcohol|cerveza)\b/i },
+    { category: "grooming", signal: "enticement", langs: ["fr"], weight: 0.5, re: /\b(j'ai|je peux (t')?avoir|je t'apporte)\s+(de la |des )?(drogue|herbe|alcool|bi[eè]re)\b/i },
+    { category: "grooming", signal: "enticement", langs: ["pt"], weight: 0.5, re: /\b(eu tenho|consigo|posso arranjar|te trago)\s+(droga|maconha|[aá]lcool|cerveja)\b/i },
+    { category: "grooming", signal: "enticement", langs: ["de"], weight: 0.5, re: /\b(ich habe|ich besorge dir|ich bring dir)\s+(drogen|gras|alkohol|bier)\b/i },
 
     { category: "harassment", langs: ["en"], weight: 0.5, re: /\b(loser|freak|ugly|stupid|worthless|pathetic|nobody likes you|no one likes you|kill yourself|kys)\b/i },
     { category: "harassment", langs: ["es"], weight: 0.5, re: /\b(perdedor|fe[oa]|est[uú]pid[oa]|in[uú]til|nadie te quiere|m[aá]tate)\b/i },

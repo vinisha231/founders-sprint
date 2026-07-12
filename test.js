@@ -50,6 +50,7 @@ check("16. Violent threat (English)", has(find("i'm going to hurt you"), "violen
 check("17. Violent threat (Spanish)", has(find("te voy a matar"), "violent-threat"));
 check("17b. Violent threat: textspeak (\"imma beat u up\")", has(find("imma beat u up"), "violent-threat"));
 check("17c. Violent threat: textspeak (\"ur dead\")", has(find("shut up ur dead"), "violent-threat"));
+check("17d. Grooming: drug enticement (\"I got some drugs for you\")", has(find("I got some drugs for you", { rel: "not-mutual" }), "grooming"));
 
 console.log("\nClassification — direction & multilingual self-harm");
 check("18. Self-harm flagged on OUTGOING", has(find("i want to die", { direction: "outgoing" }), "self-harm"));
