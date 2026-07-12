@@ -5,12 +5,12 @@
 
 const fs = require("fs");
 const path = require("path");
-const { detectLanguage } = require("./src/language.js");
-const { classify } = require("./src/classifier.js");
+const { detectLanguage, detectLanguageAsync } = require("./src/language.js");
+const { classify, classifyAsync } = require("./src/classifier.js");
 const { redactExcerpt, MASK } = require("./src/redact.js");
 const { formatAlert, route, tierFor, IMMEDIATE_THRESHOLD } = require("./src/alerts.js");
 const { normalizeMessage, assertLegitimateSource } = require("./src/ingest.js");
-const { processMessage, processStream } = require("./src/pipeline.js");
+const { processMessage, processStream, processMessageAsync, processStreamAsync } = require("./src/pipeline.js");
 
 let pass = 0, fail = 0;
 const fails = [];
@@ -25,6 +25,8 @@ function find(text, opts = {}) {
 }
 const has = (findings, cat) => findings.some((f) => f.category === cat);
 const conf = (findings, cat) => (findings.find((f) => f.category === cat) || {}).confidence || 0;
+
+async function runTests() {
 
 console.log("\nLanguage detection");
 check("1. Detects English", detectLanguage("the quick brown fox and you").language === "en");
@@ -115,7 +117,83 @@ console.log("\nPipeline & guardrail: no network");
   check("47. No src module imports network/shell APIs", offenders.length === 0);
 }
 
+console.log("\nOptional AWS Comprehend backend — pluggable, local-fallback");
+{
+  // Default (no backend requested): detectLanguageAsync must behave
+  // identically to the sync local heuristic it wraps.
+  const sync = detectLanguage("the quick brown fox and you");
+  const asyncDefault = await detectLanguageAsync("the quick brown fox and you");
+  check("48. detectLanguageAsync (default) matches sync detectLanguage", asyncDefault.language === sync.language && asyncDefault.confidence === sync.confidence);
+  check("49. detectLanguageAsync (default) reports local-heuristic source", asyncDefault.source === "local-heuristic");
+}
+{
+  // aws-comprehend requested but the SDK isn't installed (it's an optional
+  // dependency, not present in this checkout) -- must gracefully fall back
+  // rather than throw, and must say why.
+  const fallback = await detectLanguageAsync("hola que tal estas", { backend: "aws-comprehend" });
+  const localOnly = detectLanguage("hola que tal estas");
+  check("50. AWS backend unavailable falls back to the same language as local", fallback.language === localOnly.language);
+  check("51. Fallback result reports local-heuristic source with a reason", fallback.source === "local-heuristic" && typeof fallback.fallback === "string" && /aws-comprehend/i.test(fallback.fallback));
+}
+{
+  // classifyAsync must produce identical findings to classify() when using
+  // the default backend -- the async/pluggable path is strictly additive.
+  const msg = { text: "you're so mature, don't tell your parents, add me on telegram", senderRelationship: "not-mutual" };
+  const syncResult = classify(msg);
+  const asyncResult = await classifyAsync(msg);
+  check("52. classifyAsync (default) matches classify() findings", JSON.stringify(syncResult.findings) === JSON.stringify(asyncResult.findings));
+}
+{
+  // classifyAsync with aws-comprehend requested (falls back) must still
+  // classify correctly -- a missing/failed AWS backend degrades detection
+  // quality at worst, never breaks the pipeline or drops a real finding.
+  const msg = { text: "you're so mature, don't tell your parents, add me on telegram", senderRelationship: "not-mutual" };
+  const result = await classifyAsync(msg, { backend: "aws-comprehend" });
+  check("53. classifyAsync with unavailable AWS backend still flags grooming", has(result.findings, "grooming"));
+}
+{
+  // Full pipeline, async + aws-comprehend requested, on a single message:
+  // must still produce a properly formatted immediate alert, plus a visible
+  // fallback note explaining why the local heuristic was used instead.
+  const r = await processMessageAsync(
+    { text: "add me on telegram and don't tell your parents", direction: "incoming", senderRelationship: "not-mutual", source: "manual" },
+    { backend: "aws-comprehend" }
+  );
+  check("54. processMessageAsync (AWS unavailable) still returns immediate alerts", r.alerts.length >= 1 && /DETECTED:/.test(r.alerts[0]));
+  check("55. processMessageAsync reports the AWS fallback reason", typeof r.fallback === "string" && /aws-comprehend/i.test(r.fallback));
+}
+{
+  // Full pipeline, async + aws-comprehend requested, on the sample stream:
+  // counts must match the sync/local run exactly -- fallback is transparent
+  // to the caller, not just to a single message.
+  const messages = JSON.parse("[" + fs.readFileSync(path.join(__dirname, "examples/sample-stream.jsonl"), "utf8").trim().split("\n").join(",") + "]");
+  const localOut = processStream(messages);
+  const awsOut = await processStreamAsync(messages, "daily", { backend: "aws-comprehend" });
+  check("56. processStreamAsync (AWS unavailable) matches processStream counts", JSON.stringify(localOut.counts) === JSON.stringify(awsOut.counts));
+}
+{
+  // Unknown backend name is a real configuration error, not a silent
+  // fallback -- it should surface clearly rather than being swallowed.
+  let threw = false;
+  try { await detectLanguageAsync("hi", { backend: "not-a-real-backend" }); }
+  catch { threw = true; }
+  check("57. Unknown language backend throws instead of silently succeeding", threw);
+}
+{
+  // Detection-only boundary: the AWS SDK is referenced from exactly one
+  // src module. Nothing else in src/ depends on it, so the base pipeline
+  // (ingest/classify/alert) stays offline and dependency-free regardless
+  // of whether the optional AWS backend is ever used.
+  const srcFiles = fs.readdirSync(path.join(__dirname, "src"));
+  const awsRefs = srcFiles.filter((f) => /@aws-sdk/.test(fs.readFileSync(path.join(__dirname, "src", f), "utf8")));
+  check("58. Only src/aws-language.js references the AWS SDK", awsRefs.length === 1 && awsRefs[0] === "aws-language.js");
+}
+
 console.log(`\n${fail === 0 ? "✓ PASS" : "✗ FAIL"} — ${pass} passed, ${fail} failed`);
 if (fail) console.log("  failed: " + fails.join(", "));
 console.log("");
 process.exit(fail === 0 ? 0 : 1);
+
+}
+
+runTests();
