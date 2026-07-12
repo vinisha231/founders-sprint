@@ -49,6 +49,42 @@ console.log("\nSECURE rules");
   const r = scan(`el.innerHTML = req.body.text;`);
   check("flags XSS via innerHTML", hasId(r.secure, "xss-innerhtml"));
 }
+{
+  const r = scan(`fetch('https://api.example.com/' + req.query.target);`);
+  check("flags SSRF", hasId(r.secure, "ssrf"));
+}
+{
+  const r = scan(`res.redirect(req.query.next);`);
+  check("flags open redirect", hasId(r.secure, "open-redirect"));
+}
+{
+  const r = scan(`Object.assign(config, req.body);`);
+  check("flags prototype pollution", hasId(r.secure, "prototype-pollution"));
+}
+{
+  const r = scan(`const data = pickle.loads(userInput);`);
+  check("flags insecure deserialization (pickle)", hasId(r.secure, "insecure-deserialization"));
+}
+{
+  const r = scan(`const config = yaml.load(userInput);`);
+  check("flags insecure deserialization (unsafe yaml.load)", hasId(r.secure, "insecure-deserialization"));
+}
+{
+  const r = scan(`const config = yaml.load(userInput, { Loader: yaml.SafeLoader });`);
+  check("does NOT flag yaml.load with SafeLoader", !hasId(r.secure, "insecure-deserialization"));
+}
+{
+  const r = scan(`const token = "" + Math.random();`);
+  check("flags weak randomness for a token", hasId(r.secure, "weak-randomness"));
+}
+{
+  const r = scan(`res.setHeader('Access-Control-Allow-Origin', '*');`);
+  check("flags permissive CORS header", hasId(r.secure, "cors-misconfig"));
+}
+{
+  const r = scan(`app.use(cors({ origin: true }));`);
+  check("flags permissive CORS config", hasId(r.secure, "cors-misconfig"));
+}
 
 console.log("\nVALIDATE rules");
 {
@@ -62,6 +98,10 @@ console.log("\nVALIDATE rules");
 {
   const r = scan(`function foo() { return 1; }`);
   check("flags missing tests for logic", hasId(r.validate, "no-tests"));
+}
+{
+  const r = scan(`app.listen(3000); const server = { debug: true };`);
+  check("flags debug mode left enabled", hasId(r.validate, "debug-mode-enabled"));
 }
 
 console.log("\nVerdicts & false-positives");
@@ -82,6 +122,14 @@ console.log("\nVerdicts & false-positives");
 {
   const r = scan(`fetch('http://localhost:3000/api');`);
   check("localhost http is NOT flagged", !hasId(r.secure, "http-url"));
+}
+{
+  const r = scan(`const id = crypto.randomUUID();`);
+  check("crypto.randomUUID is NOT flagged as weak randomness", !hasId(r.secure, "weak-randomness"));
+}
+{
+  const r = scan(`app.use(cors({ origin: 'https://app.example.com' }));`);
+  check("CORS with explicit origin is NOT flagged", !hasId(r.secure, "cors-misconfig"));
 }
 
 console.log("\nDiff handling");

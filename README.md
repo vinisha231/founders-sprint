@@ -15,7 +15,7 @@ something you can actually click.
 | --- | --- |
 | **Build** | Takes your pasted code / unified diff as input (it never modifies your code). |
 | **Validate** | Detects missing tests, leftover `console.log`/`print` debugging, unresolved `TODO`/`FIXME`, and empty `catch` blocks that swallow errors. |
-| **Secure** | Heuristic security scan mapped to the checklist: hardcoded secrets & connection strings, SQL/command injection, path traversal, XSS, **broken object-level authorization (IDOR)**, missing auth on new routes, insecure `http://` calls, cookies without security flags, weak hashing, and `eval`. |
+| **Secure** | Heuristic security scan mapped to the checklist: hardcoded secrets & connection strings, SQL/command injection, path traversal, XSS, **broken object-level authorization (IDOR)**, missing auth on new routes, insecure `http://` calls, cookies without security flags, weak hashing, `eval`, **SSRF, open redirect, prototype pollution, insecure deserialization, weak randomness for tokens, and permissive CORS**. |
 
 The output is the exact structured **ship report** from the methodology:
 

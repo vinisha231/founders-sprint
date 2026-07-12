@@ -149,6 +149,60 @@
       advice: "Log details server-side; return a generic message so stack traces and paths aren't exposed in production.",
       test: (c) => /res\.(?:send|json|status\([^)]*\)\.(?:send|json))\s*\([^)]*(?:err\.stack|error\.stack|err\.message|exception)/i.test(c),
     },
+    {
+      id: "ssrf",
+      severity: SEV.HIGH,
+      title: "Possible server-side request forgery (SSRF)",
+      item: "Input handling",
+      advice: "Don't fetch a URL built from user input directly. Validate against an allow-list of hosts/schemes before making the request.",
+      test: (c) =>
+        /(?:fetch|axios(?:\.(?:get|post|put|delete))?|request|http\.get|https\.get)\s*\(\s*(?:`[^`]*\$\{[^}]*(?:req|params|query|body|user|input)[^}]*\}|[^)]*\+\s*(?:req|params|query|body|user|input)\b)/i.test(c),
+    },
+    {
+      id: "open-redirect",
+      severity: SEV.MED,
+      title: "Possible open redirect",
+      item: "Input handling",
+      advice: "Validate the redirect target against an allow-list of known paths/hosts rather than redirecting to a raw user-supplied URL.",
+      test: (c) => /res\.redirect\s*\(\s*(?:req\.(?:query|body|params)\b|[^)]*\+\s*(?:req|params|query|body)\b)/i.test(c),
+    },
+    {
+      id: "prototype-pollution",
+      severity: SEV.HIGH,
+      title: "Possible prototype pollution (unfiltered merge of user input)",
+      item: "Input handling",
+      advice: "Don't deep-merge/assign req.body directly onto an object. Whitelist expected keys or use a library with prototype-pollution protection.",
+      test: (c) => /(?:Object\.assign|_\.merge|deepMerge|extend|merge)\s*\([^)]*req\.body\b/i.test(c),
+    },
+    {
+      id: "insecure-deserialization",
+      severity: SEV.HIGH,
+      title: "Insecure deserialization",
+      item: "Input handling",
+      advice: "Avoid deserializing untrusted data with formats that can execute code (pickle, unsafe YAML, PHP unserialize). Use JSON or a safe/restricted loader instead.",
+      test: (c) =>
+        /pickle\.loads?\s*\(/i.test(c) ||
+        (/yaml\.load\s*\(/i.test(c) && !/SafeLoader/.test(c)) ||
+        /unserialize\s*\(\s*\$_(?:GET|POST|REQUEST|COOKIE)/i.test(c),
+    },
+    {
+      id: "weak-randomness",
+      severity: SEV.MED,
+      title: "Insecure randomness used for a security-sensitive value",
+      item: "Input handling",
+      advice: "Math.random() isn't cryptographically secure. Use crypto.randomBytes / crypto.randomUUID (or the language's CSPRNG) for tokens, secrets, and session IDs.",
+      test: (c) => /(?:token|secret|password|session[iI]d|resetCode|otp|apiKey)\s*=\s*[^;]*Math\.random\s*\(\)/i.test(c),
+    },
+    {
+      id: "cors-misconfig",
+      severity: SEV.MED,
+      title: "Overly permissive CORS configuration",
+      item: "Session & transport",
+      advice: "Avoid Access-Control-Allow-Origin: * (especially with credentials). Restrict to an explicit allow-list of trusted origins.",
+      test: (c) =>
+        /Access-Control-Allow-Origin["']?\s*[:=,]\s*["']\*/i.test(c) ||
+        /cors\s*\(\s*\{\s*origin\s*:\s*(?:true|["']\*["'])/i.test(c),
+    },
   ];
 
   const ENDPOINT_RE = /(?:app|router)\.(?:get|post|put|patch|delete)\s*\(\s*["'`][^"'`]+["'`]/i;
@@ -175,6 +229,16 @@
       title: "Empty catch block swallows errors",
       advice: "Handle or log the error — silently swallowing it hides real failures.",
       test: (c) => /catch\s*\([^)]*\)\s*\{\s*\}/.test(c) || /except[^\n:]*:\s*pass\b/.test(c),
+    },
+    {
+      id: "debug-mode-enabled",
+      severity: SEV.MED,
+      title: "Debug/verbose mode left enabled",
+      advice: "Turn debug mode off (or gate it behind an env check) before shipping — it can leak stack traces, source paths, and internals.",
+      test: (c) =>
+        /\bdebug\s*[:=]\s*true\b/i.test(c) ||
+        /\bapp\.debug\s*=\s*True\b/.test(c) ||
+        /\bDEBUG\s*=\s*True\b/.test(c),
     },
   ];
 
