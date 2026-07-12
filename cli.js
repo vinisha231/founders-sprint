@@ -15,6 +15,13 @@
      --platform <name>                    e.g. instagram (metadata only)
      --period daily|weekly                summary window label (default: daily)
      --json                               machine-readable output
+     --use-aws                            detect language via Amazon Comprehend
+                                           instead of the local heuristic (falls
+                                           back to local automatically on any
+                                           AWS failure). Also enabled by setting
+                                           CONTENT_RISK_LANGUAGE_BACKEND=aws-comprehend.
+                                           Sends message text to AWS for language
+                                           ID only — see src/aws-language.js.
      --help
 
    Detect-and-inform only: this tool never blocks, deletes, or acts
@@ -22,14 +29,15 @@
    ============================================================ */
 
 const fs = require("fs");
-const { processMessage, processStream } = require("./src/pipeline.js");
+const { processMessage, processStream, processMessageAsync, processStreamAsync } = require("./src/pipeline.js");
 
 function parseArgs(argv) {
-  const opts = { direction: "incoming", relationship: "unknown", platform: "unknown", period: "daily", json: false };
+  const opts = { direction: "incoming", relationship: "unknown", platform: "unknown", period: "daily", json: false, useAws: false };
   const positional = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--json") opts.json = true;
+    else if (a === "--use-aws") opts.useAws = true;
     else if (a === "--help" || a === "-h") opts.help = true;
     else if (a === "--file") opts.file = argv[++i];
     else if (a === "--direction") opts.direction = argv[++i];
@@ -53,6 +61,9 @@ function banner() {
 function printSingle(result, json) {
   if (json) { process.stdout.write(JSON.stringify(result, null, 2) + "\n"); return; }
   process.stdout.write(`language: ${result.languageName} (${result.language})\n`);
+  if (result.fallback) {
+    process.stdout.write(`note: ${result.fallback}\n`);
+  }
   if (result.alerts.length === 0 && result.batch.length === 0) {
     process.stdout.write("No risk categories flagged.\n");
     return;
@@ -78,7 +89,7 @@ function loadJsonl(file) {
     });
 }
 
-function main() {
+async function main() {
   const opts = parseArgs(process.argv.slice(2));
 
   if (opts.help) {
@@ -86,10 +97,14 @@ function main() {
     return;
   }
 
+  const backendOpts = opts.useAws ? { backend: "aws-comprehend" } : {};
+
   // Stream mode.
   if (opts.file) {
     const messages = loadJsonl(opts.file);
-    const out = processStream(messages, opts.period);
+    const out = opts.useAws
+      ? await processStreamAsync(messages, opts.period, backendOpts)
+      : processStream(messages, opts.period);
     if (opts.json) { process.stdout.write(JSON.stringify(out, null, 2) + "\n"); return; }
     banner();
     process.stdout.write(`Scanned ${out.counts.messages} message(s): ${out.counts.immediate} immediate, ${out.counts.batched} batched.\n`);
@@ -108,15 +123,21 @@ function main() {
     process.exit(2);
   }
 
-  const result = processMessage({
+  const messageInput = {
     text,
     direction: opts.direction,
     senderRelationship: opts.relationship,
     platform: opts.platform,
     source: "manual",
-  });
+  };
+  const result = opts.useAws
+    ? await processMessageAsync(messageInput, backendOpts)
+    : processMessage(messageInput);
   if (!opts.json) banner();
   printSingle(result, opts.json);
 }
 
-main();
+main().catch((err) => {
+  process.stderr.write(`Error: ${err.message}\n`);
+  process.exit(1);
+});

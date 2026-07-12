@@ -10,7 +10,7 @@
    is scored independently.
    ============================================================ */
 
-const { detectLanguage, NAMES } = require("./language.js");
+const { detectLanguage, detectLanguageAsync, NAMES } = require("./language.js");
 const { ENTRIES, CATEGORY_LABELS, ANY } = require("./lexicons.js");
 const { redactExcerpt } = require("./redact.js");
 
@@ -34,22 +34,18 @@ function entriesForLanguage(lang) {
   });
 }
 
-/*
-  message = {
-    text: string,
-    direction: "incoming" | "outgoing",   // relative to the child
-    senderRelationship: "mutual" | "not-mutual" | "unknown",
-    platform, timestamp, id  (optional metadata)
-  }
-  Returns { language, findings: [ {category, label, confidence, language,
-            excerpt, signals, senderRelationship, direction} ] }
-*/
-function classify(message) {
+/* Shared core: given a message and an ALREADY-DETECTED language result
+   (from either the sync local detector or the async pluggable one),
+   run the lexicons and build findings. Kept separate from language
+   detection so classify() (sync, local-only) and classifyAsync()
+   (async, pluggable backend) share every byte of matching logic —
+   the only thing that differs between them is how `lang` was
+   produced. */
+function classifyWithLanguage(message, lang) {
   const text = String(message && message.text || "");
   const direction = message && message.direction === "outgoing" ? "outgoing" : "incoming";
   const relationship = (message && message.senderRelationship) || "unknown";
 
-  const lang = detectLanguage(text);
   // Short, keyword-only messages often have no stopwords to detect from. When
   // detection is unsure, cast a wide net (all lexicons) — recall matters more
   // than precision for a safety detector — and infer the language from whatever
@@ -113,7 +109,48 @@ function classify(message) {
 
   // Highest-confidence category first.
   findings.sort((a, b) => b.confidence - a.confidence);
-  return { language: lang.language, languageName: lang.name, findings };
+  return {
+    language: lang.language,
+    languageName: lang.name,
+    findings,
+    // Present only when the async pluggable backend produced this
+    // result; undefined (and dropped by JSON.stringify) for the
+    // plain sync local path so existing output/tests are unaffected.
+    languageSource: lang.source,
+    languageFallback: lang.fallback,
+  };
 }
 
-module.exports = { classify, MIN_CONFIDENCE, noisyOr };
+/*
+  message = {
+    text: string,
+    direction: "incoming" | "outgoing",   // relative to the child
+    senderRelationship: "mutual" | "not-mutual" | "unknown",
+    platform, timestamp, id  (optional metadata)
+  }
+  Returns { language, findings: [ {category, label, confidence, language,
+            excerpt, signals, senderRelationship, direction} ] }
+
+  Synchronous, local-heuristic language detection only — this is the
+  default used throughout the pipeline and every existing test.
+*/
+function classify(message) {
+  const text = String(message && message.text || "");
+  const lang = detectLanguage(text);
+  return classifyWithLanguage(message, lang);
+}
+
+/* Same as classify(), but detects language via the pluggable async
+   backend (see detectLanguageAsync in src/language.js) — pass
+   { backend: "aws-comprehend" } or set
+   CONTENT_RISK_LANGUAGE_BACKEND=aws-comprehend to use Amazon
+   Comprehend, with automatic fallback to the local heuristic on any
+   failure. Classification itself is unaffected either way: findings
+   still come from the same native-per-language lexicons. */
+async function classifyAsync(message, opts = {}) {
+  const text = String(message && message.text || "");
+  const lang = await detectLanguageAsync(text, opts);
+  return classifyWithLanguage(message, lang);
+}
+
+module.exports = { classify, classifyAsync, MIN_CONFIDENCE, noisyOr };
